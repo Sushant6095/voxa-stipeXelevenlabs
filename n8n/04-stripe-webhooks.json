@@ -1,0 +1,794 @@
+{
+  "name": "Voxa W4 — Stripe Webhooks",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "stripe-webhook",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "X-Voxa-Workflow",
+                "value": "stripe-webhook"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node-webhook-stripe",
+      "name": "Webhook (POST /stripe-webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2200,
+        0
+      ],
+      "webhookId": "voxa-stripe-webhook-hook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"received\": true\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-immediate",
+      "name": "Respond immediately",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1980,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "asn-kind",
+              "name": "kind",
+              "value": "={{ $json.body.kind }}",
+              "type": "string"
+            },
+            {
+              "id": "asn-business",
+              "name": "business_id",
+              "value": "={{ $json.body.business_id }}",
+              "type": "string"
+            },
+            {
+              "id": "asn-sub",
+              "name": "subscription",
+              "value": "={{ $json.body.subscription }}",
+              "type": "object"
+            },
+            {
+              "id": "asn-event",
+              "name": "event",
+              "value": "={{ $json.body.event }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-normalize",
+      "name": "Set normalize",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1980,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "sw-deleted",
+                    "leftValue": "={{ $json.kind }}",
+                    "rightValue": "subscription_deleted",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "subscription_deleted"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "sw-failed",
+                    "leftValue": "={{ $json.kind }}",
+                    "rightValue": "invoice_payment_failed",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "invoice_payment_failed"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "ignored"
+        }
+      },
+      "id": "node-switch-kind",
+      "name": "Switch on kind",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -1760,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "agents",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "business_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Set normalize').item.json.business_id }}"
+            }
+          ]
+        }
+      },
+      "id": "node-deleted-fetch-agent",
+      "name": "Supabase fetch agent (deleted)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1540,
+        -120
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/IncomingPhoneNumbers/{{ $json.twilio_number_sid }}.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-twilio-release",
+      "name": "HTTP twilio.release",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1320,
+        -120
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "voxa-twilio-basic",
+          "name": "Voxa Twilio (Account SID / Auth Token)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://api.elevenlabs.io/v1/convai/agents/{{ $('Supabase fetch agent (deleted)').item.json.elevenlabs_agent_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "={{ $env.ELEVENLABS_API_KEY }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-el-delete",
+      "name": "HTTP el.agents.delete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1100,
+        -120
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "agents",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "business_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Set normalize').item.json.business_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "paused"
+            }
+          ]
+        }
+      },
+      "id": "node-archive-agent",
+      "name": "Supabase archive agent",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        -120
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "businesses",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Set normalize').item.json.business_id }}"
+            }
+          ]
+        }
+      },
+      "id": "node-deleted-fetch-business",
+      "name": "Supabase fetch business (deleted)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -660,
+        -120
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "From",
+              "value": "=whatsapp:{{ $env.TWILIO_WHATSAPP_FROM }}"
+            },
+            {
+              "name": "To",
+              "value": "=whatsapp:{{ $json.owner_whatsapp }}"
+            },
+            {
+              "name": "Body",
+              "value": "=Your Voxa subscription was canceled. Your number {{ $('Supabase fetch agent (deleted)').item.json.twilio_phone_e164 }} has been released. We're sorry to see you go."
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-deleted-whatsapp",
+      "name": "HTTP twilio.whatsapp.canceled",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -440,
+        -120
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "voxa-twilio-basic",
+          "name": "Voxa Twilio (Account SID / Auth Token)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "done-archived",
+              "name": "archived",
+              "value": "=true",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-set-archived",
+      "name": "Set archived",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -220,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// invoice_payment_failed arrives with the raw Stripe event; pull the\n// subscription id off event.data.object so we can look up business_id.\nconst body = $('Webhook (POST /stripe-webhook)').first().json.body || {};\nconst event = body.event || {};\nconst object = event?.data?.object || {};\nconst subscriptionId = typeof object.subscription === 'string'\n  ? object.subscription\n  : (object.subscription?.id ?? null);\nconst customerId = typeof object.customer === 'string'\n  ? object.customer\n  : (object.customer?.id ?? null);\n\nreturn [{ json: { subscription_id: subscriptionId, stripe_customer_id: customerId } }];"
+      },
+      "id": "node-extract-failed",
+      "name": "Code extract failed ids",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1540,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "subscriptions",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "stripe_customer_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.stripe_customer_id }}"
+            }
+          ]
+        }
+      },
+      "id": "node-failed-fetch-sub",
+      "name": "Supabase fetch subscription",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1320,
+        260
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "agents",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "business_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.business_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "paused"
+            }
+          ]
+        }
+      },
+      "id": "node-failed-pause",
+      "name": "Supabase pause agents",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1100,
+        260
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "businesses",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase fetch subscription').item.json.business_id }}"
+            }
+          ]
+        }
+      },
+      "id": "node-failed-fetch-business",
+      "name": "Supabase fetch business (failed)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -880,
+        260
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "From",
+              "value": "=whatsapp:{{ $env.TWILIO_WHATSAPP_FROM }}"
+            },
+            {
+              "name": "To",
+              "value": "=whatsapp:{{ $json.owner_whatsapp }}"
+            },
+            {
+              "name": "Body",
+              "value": "=Your Voxa payment failed. Your AI receptionist is paused. Update billing at {{ $env.NEXT_PUBLIC_APP_URL }}/billing to resume."
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-failed-whatsapp",
+      "name": "HTTP twilio.whatsapp.failed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -660,
+        260
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "voxa-twilio-basic",
+          "name": "Voxa Twilio (Account SID / Auth Token)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "done-paused",
+              "name": "paused",
+              "value": "=true",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-set-paused",
+      "name": "Set paused",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -440,
+        260
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ignored-1",
+              "name": "ignored",
+              "value": "=true",
+              "type": "boolean"
+            },
+            {
+              "id": "ignored-2",
+              "name": "kind",
+              "value": "={{ $('Set normalize').item.json.kind }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-set-ignored",
+      "name": "Set ignored",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1540,
+        500
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook (POST /stripe-webhook)": {
+      "main": [
+        [
+          {
+            "node": "Respond immediately",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Set normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set normalize": {
+      "main": [
+        [
+          {
+            "node": "Switch on kind",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch on kind": {
+      "main": [
+        [
+          {
+            "node": "Supabase fetch agent (deleted)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code extract failed ids",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set ignored",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase fetch agent (deleted)": {
+      "main": [
+        [
+          {
+            "node": "HTTP twilio.release",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP twilio.release": {
+      "main": [
+        [
+          {
+            "node": "HTTP el.agents.delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP el.agents.delete": {
+      "main": [
+        [
+          {
+            "node": "Supabase archive agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase archive agent": {
+      "main": [
+        [
+          {
+            "node": "Supabase fetch business (deleted)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase fetch business (deleted)": {
+      "main": [
+        [
+          {
+            "node": "HTTP twilio.whatsapp.canceled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP twilio.whatsapp.canceled": {
+      "main": [
+        [
+          {
+            "node": "Set archived",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code extract failed ids": {
+      "main": [
+        [
+          {
+            "node": "Supabase fetch subscription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase fetch subscription": {
+      "main": [
+        [
+          {
+            "node": "Supabase pause agents",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase pause agents": {
+      "main": [
+        [
+          {
+            "node": "Supabase fetch business (failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase fetch business (failed)": {
+      "main": [
+        [
+          {
+            "node": "HTTP twilio.whatsapp.failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP twilio.whatsapp.failed": {
+      "main": [
+        [
+          {
+            "node": "Set paused",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Asia/Kolkata"
+  },
+  "versionId": "04000000-0000-4000-a000-000000000004",
+  "id": "voxa-w4-stripe-webhooks",
+  "tags": [
+    {
+      "id": "tag-voxa",
+      "name": "voxa"
+    },
+    {
+      "id": "tag-stripe",
+      "name": "stripe"
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Voxa Workflow 4 — handles Stripe lifecycle events forwarded by /api/stripe/webhook. Switches on body.kind: subscription_deleted releases Twilio number, deletes EL agent, archives agents row, WhatsApps owner. invoice_payment_failed pauses agents and WhatsApps owner with billing-portal link."
+  }
+}

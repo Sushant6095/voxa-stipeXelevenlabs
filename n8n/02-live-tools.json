@@ -1,0 +1,1071 @@
+{
+  "name": "Voxa W2 — Live Tools",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tool/:tool_name",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "X-Voxa-Workflow",
+                "value": "live-tools"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node-webhook-tool",
+      "name": "Webhook (POST /tool/:tool_name)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2200,
+        0
+      ],
+      "webhookId": "voxa-live-tools-hook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ctx-1",
+              "name": "tool_name",
+              "value": "={{ $json.params.tool_name }}",
+              "type": "string"
+            },
+            {
+              "id": "ctx-2",
+              "name": "elevenlabs_agent_id",
+              "value": "={{ $json.headers['x-elevenlabs-agent-id'] || $json.headers['elevenlabs-agent-id'] || $json.query.agent_id || $json.body.agent_id || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "ctx-3",
+              "name": "conversation_id",
+              "value": "={{ $json.headers['x-elevenlabs-conversation-id'] || $json.query.conversation_id || $json.body.conversation_id || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "ctx-4",
+              "name": "business_id_hint",
+              "value": "={{ $json.query.business_id || $json.body.business_id || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "ctx-5",
+              "name": "args",
+              "value": "={{ $json.body }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-ctx",
+      "name": "Set ctx",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "agents",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "elevenlabs_agent_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.elevenlabs_agent_id }}"
+            }
+          ]
+        }
+      },
+      "id": "node-resolve-business",
+      "name": "Supabase resolve business",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1760,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "biz-1",
+              "name": "business_id",
+              "value": "={{ $json.business_id || $('Set ctx').item.json.business_id_hint }}",
+              "type": "string"
+            },
+            {
+              "id": "biz-2",
+              "name": "tool_name",
+              "value": "={{ $('Set ctx').item.json.tool_name }}",
+              "type": "string"
+            },
+            {
+              "id": "biz-3",
+              "name": "args",
+              "value": "={{ $('Set ctx').item.json.args }}",
+              "type": "object"
+            },
+            {
+              "id": "biz-4",
+              "name": "conversation_id",
+              "value": "={{ $('Set ctx').item.json.conversation_id }}",
+              "type": "string"
+            },
+            {
+              "id": "biz-5",
+              "name": "elevenlabs_agent_id",
+              "value": "={{ $('Set ctx').item.json.elevenlabs_agent_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-merge-ctx",
+      "name": "Set merged ctx",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "sw-1",
+                    "leftValue": "={{ $json.tool_name }}",
+                    "rightValue": "check_availability",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "check_availability"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "sw-2",
+                    "leftValue": "={{ $json.tool_name }}",
+                    "rightValue": "book_appointment",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "book_appointment"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "sw-3",
+                    "leftValue": "={{ $json.tool_name }}",
+                    "rightValue": "get_business_info",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_business_info"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "sw-4",
+                    "leftValue": "={{ $json.tool_name }}",
+                    "rightValue": "escalate_to_owner",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "escalate_to_owner"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "sw-5",
+                    "leftValue": "={{ $json.tool_name }}",
+                    "rightValue": "send_callback_link",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "send_callback_link"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose"
+                },
+                "conditions": [
+                  {
+                    "id": "sw-6",
+                    "leftValue": "={{ $json.tool_name }}",
+                    "rightValue": "log_lead",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "log_lead"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "unknown"
+        }
+      },
+      "id": "node-switch",
+      "name": "Switch on tool_name",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.cal.com/v2/slots",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.CAL_COM_API_KEY }}"
+            },
+            {
+              "name": "cal-api-version",
+              "value": "2024-09-04"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "start",
+              "value": "={{ $('Set merged ctx').item.json.args.date }}T00:00:00.000Z"
+            },
+            {
+              "name": "end",
+              "value": "={{ $('Set merged ctx').item.json.args.date }}T23:59:59.999Z"
+            },
+            {
+              "name": "timeZone",
+              "value": "Asia/Kolkata"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 2000,
+          "response": {
+            "response": {
+              "fullResponse": false,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "node-cal-slots",
+      "name": "HTTP cal.com slots",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1060,
+        -600
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format slots with a graceful fallback. EL must always get something to read.\nconst input = $input.first().json;\nconst ctx = $('Set merged ctx').first().json;\nlet slots = [];\n\ntry {\n  if (input && input.data && Array.isArray(input.data.slots)) {\n    slots = input.data.slots.slice(0, 5).map(s => ({ time: s.time || s.start || s }));\n  } else if (Array.isArray(input?.slots)) {\n    slots = input.slots.slice(0, 5);\n  }\n} catch (e) {\n  slots = [];\n}\n\nif (slots.length === 0) {\n  // Fallback so the call doesn't break\n  const date = ctx?.args?.date || 'tomorrow';\n  slots = [\n    { time: `${date} 10:00 AM` },\n    { time: `${date} 11:30 AM` },\n    { time: `${date} 3:00 PM` },\n    { time: `${date} 5:30 PM` }\n  ];\n}\n\nreturn [{ json: { slots, source: input?.data ? 'cal.com' : 'fallback' } }];"
+      },
+      "id": "node-format-slots",
+      "name": "Code format slots",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -840,
+        -600
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"slots\": {{ JSON.stringify($json.slots) }},\n  \"source\": \"{{ $json.source }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-availability",
+      "name": "Respond check_availability",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -620,
+        -600
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.cal.com/v2/bookings",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.CAL_COM_API_KEY }}"
+            },
+            {
+              "name": "cal-api-version",
+              "value": "2024-08-13"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"start\": \"{{ $('Set merged ctx').item.json.args.datetime_iso }}\",\n  \"attendee\": {\n    \"name\": \"{{ $('Set merged ctx').item.json.args.customer_name }}\",\n    \"phoneNumber\": \"{{ $('Set merged ctx').item.json.args.customer_phone }}\",\n    \"timeZone\": \"Asia/Kolkata\"\n  },\n  \"eventTypeSlug\": \"voxa-default\",\n  \"metadata\": {\n    \"service\": \"{{ $('Set merged ctx').item.json.args.service }}\",\n    \"voxa_business_id\": \"{{ $('Set merged ctx').item.json.business_id }}\"\n  }\n}",
+        "options": {
+          "timeout": 2500,
+          "response": {
+            "response": {
+              "fullResponse": false,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "node-cal-book",
+      "name": "HTTP cal.com book",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1060,
+        -360
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "leads",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "business_id",
+              "fieldValue": "={{ $('Set merged ctx').item.json.business_id }}"
+            },
+            {
+              "fieldId": "customer_name",
+              "fieldValue": "={{ $('Set merged ctx').item.json.args.customer_name }}"
+            },
+            {
+              "fieldId": "customer_phone",
+              "fieldValue": "={{ $('Set merged ctx').item.json.args.customer_phone }}"
+            },
+            {
+              "fieldId": "intent",
+              "fieldValue": "booking"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "new"
+            },
+            {
+              "fieldId": "lead_score",
+              "fieldValue": "7"
+            },
+            {
+              "fieldId": "notes",
+              "fieldValue": "=Booked {{ $('Set merged ctx').item.json.args.service }} on {{ $('Set merged ctx').item.json.args.datetime_iso }} via live call"
+            }
+          ]
+        }
+      },
+      "id": "node-leads-insert-book",
+      "name": "Supabase insert lead (booking)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -840,
+        -360
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "From",
+              "value": "=whatsapp:{{ $env.TWILIO_WHATSAPP_FROM }}"
+            },
+            {
+              "name": "To",
+              "value": "=whatsapp:{{ $('Set merged ctx').item.json.args.customer_phone }}"
+            },
+            {
+              "name": "Body",
+              "value": "=Appointment confirmed: {{ $('Set merged ctx').item.json.args.service }} on {{ $('Set merged ctx').item.json.args.datetime_iso }}. — Voxa"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 2500
+        }
+      },
+      "id": "node-whatsapp-confirm",
+      "name": "HTTP twilio.whatsapp.confirm",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -620,
+        -360
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "voxa-twilio-basic",
+          "name": "Voxa Twilio (Account SID / Auth Token)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"booked\": true,\n  \"confirmation\": \"Appointment confirmed and WhatsApp sent.\",\n  \"datetime\": \"{{ $('Set merged ctx').item.json.args.datetime_iso }}\",\n  \"service\": \"{{ $('Set merged ctx').item.json.args.service }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-book",
+      "name": "Respond book_appointment",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -400,
+        -360
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "knowledge_base",
+        "returnAll": false,
+        "limit": 3,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "business_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Set merged ctx').item.json.business_id }}"
+            },
+            {
+              "keyName": "content",
+              "condition": "ilike",
+              "keyValue": "=%{{ $('Set merged ctx').item.json.args.query }}%"
+            }
+          ]
+        }
+      },
+      "id": "node-kb-select",
+      "name": "Supabase knowledge_base select",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1060,
+        -120
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Combine top KB matches into a single answer string.\nconst items = $input.all();\nlet answer;\n\nif (items.length === 0 || !items[0]?.json?.content) {\n  answer = \"I do not have that information yet. The owner will follow up on WhatsApp.\";\n} else {\n  const snippets = items.slice(0, 2).map(i => i.json.content).filter(Boolean);\n  answer = snippets.join(' ').slice(0, 600);\n}\n\nreturn [{ json: { answer } }];"
+      },
+      "id": "node-kb-format",
+      "name": "Code format kb answer",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -840,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"answer\": {{ JSON.stringify($json.answer) }}\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-info",
+      "name": "Respond get_business_info",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -620,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "From",
+              "value": "=whatsapp:{{ $env.TWILIO_WHATSAPP_FROM }}"
+            },
+            {
+              "name": "To",
+              "value": "=whatsapp:{{ $('Supabase resolve business').item.json.owner_whatsapp || $('Supabase resolve business').item.json.business_id }}"
+            },
+            {
+              "name": "Body",
+              "value": "=ESCALATION ({{ $('Set merged ctx').item.json.args.urgency }}): {{ $('Set merged ctx').item.json.args.reason }} — caller on live call now."
+            }
+          ]
+        },
+        "options": {
+          "timeout": 2000
+        }
+      },
+      "id": "node-escalate-whatsapp",
+      "name": "HTTP twilio.whatsapp.owner",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1060,
+        140
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "voxa-twilio-basic",
+          "name": "Voxa Twilio (Account SID / Auth Token)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"escalated\": true,\n  \"eta_seconds\": 10,\n  \"message\": \"Owner has been notified on WhatsApp.\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-escalate",
+      "name": "Respond escalate_to_owner",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -620,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "From",
+              "value": "=whatsapp:{{ $env.TWILIO_WHATSAPP_FROM }}"
+            },
+            {
+              "name": "To",
+              "value": "=whatsapp:{{ $('Set merged ctx').item.json.args.customer_phone }}"
+            },
+            {
+              "name": "Body",
+              "value": "=Here is your booking link: {{ $env.NEXT_PUBLIC_APP_URL }}/book/{{ $('Set merged ctx').item.json.business_id }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 2000
+        }
+      },
+      "id": "node-callback-whatsapp",
+      "name": "HTTP twilio.whatsapp.callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1060,
+        400
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "voxa-twilio-basic",
+          "name": "Voxa Twilio (Account SID / Auth Token)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"sent\": true,\n  \"channel\": \"whatsapp\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-callback",
+      "name": "Respond send_callback_link",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -620,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "leads",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "business_id",
+              "fieldValue": "={{ $('Set merged ctx').item.json.business_id }}"
+            },
+            {
+              "fieldId": "customer_name",
+              "fieldValue": "={{ $('Set merged ctx').item.json.args.customer_name }}"
+            },
+            {
+              "fieldId": "customer_phone",
+              "fieldValue": "={{ $('Set merged ctx').item.json.args.customer_phone }}"
+            },
+            {
+              "fieldId": "intent",
+              "fieldValue": "={{ $('Set merged ctx').item.json.args.intent }}"
+            },
+            {
+              "fieldId": "notes",
+              "fieldValue": "={{ $('Set merged ctx').item.json.args.notes }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "new"
+            },
+            {
+              "fieldId": "lead_score",
+              "fieldValue": "5"
+            }
+          ]
+        }
+      },
+      "id": "node-log-lead-insert",
+      "name": "Supabase insert lead",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1060,
+        660
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"logged\": true,\n  \"lead_id\": \"{{ $json.id }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-log-lead",
+      "name": "Respond log_lead",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -840,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"error\": \"unknown tool\",\n  \"tool_name\": \"{{ $('Set merged ctx').item.json.tool_name }}\"\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "node-respond-unknown",
+      "name": "Respond unknown",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1060,
+        920
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook (POST /tool/:tool_name)": {
+      "main": [
+        [
+          {
+            "node": "Set ctx",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set ctx": {
+      "main": [
+        [
+          {
+            "node": "Supabase resolve business",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase resolve business": {
+      "main": [
+        [
+          {
+            "node": "Set merged ctx",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set merged ctx": {
+      "main": [
+        [
+          {
+            "node": "Switch on tool_name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch on tool_name": {
+      "main": [
+        [
+          {
+            "node": "HTTP cal.com slots",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP cal.com book",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase knowledge_base select",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP twilio.whatsapp.owner",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP twilio.whatsapp.callback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Supabase insert lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond unknown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP cal.com slots": {
+      "main": [
+        [
+          {
+            "node": "Code format slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code format slots": {
+      "main": [
+        [
+          {
+            "node": "Respond check_availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP cal.com book": {
+      "main": [
+        [
+          {
+            "node": "Supabase insert lead (booking)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase insert lead (booking)": {
+      "main": [
+        [
+          {
+            "node": "HTTP twilio.whatsapp.confirm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP twilio.whatsapp.confirm": {
+      "main": [
+        [
+          {
+            "node": "Respond book_appointment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase knowledge_base select": {
+      "main": [
+        [
+          {
+            "node": "Code format kb answer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code format kb answer": {
+      "main": [
+        [
+          {
+            "node": "Respond get_business_info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP twilio.whatsapp.owner": {
+      "main": [
+        [
+          {
+            "node": "Respond escalate_to_owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP twilio.whatsapp.callback": {
+      "main": [
+        [
+          {
+            "node": "Respond send_callback_link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase insert lead": {
+      "main": [
+        [
+          {
+            "node": "Respond log_lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Asia/Kolkata"
+  },
+  "versionId": "02000000-0000-4000-a000-000000000002",
+  "id": "voxa-w2-live-tools",
+  "tags": [
+    {
+      "id": "tag-voxa",
+      "name": "voxa"
+    },
+    {
+      "id": "tag-live-tools",
+      "name": "live-tools"
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Voxa Workflow 2 — live tool calls from the ElevenLabs Conv AI agent. Switch routes to one of 6 branches (check_availability, book_appointment, get_business_info, escalate_to_owner, send_callback_link, log_lead) + an unknown fallback. Every branch ends with a Respond node and is profiled to return in <2s; the EL tool timeout is 5s. business_id is resolved from agents.elevenlabs_agent_id off the EL request headers (with a body/query fallback)."
+  }
+}

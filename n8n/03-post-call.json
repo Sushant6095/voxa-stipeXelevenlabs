@@ -1,0 +1,751 @@
+{
+  "name": "Voxa W3 — Post-Call Processing",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "post-call",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "X-Voxa-Workflow",
+                "value": "post-call"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node-webhook-postcall",
+      "name": "Webhook (POST /post-call)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -2200,
+        0
+      ],
+      "webhookId": "voxa-post-call-hook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"received\": true\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-immediate",
+      "name": "Respond immediately",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -1980,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Derive billing minutes + canonical event fields from the EL post-call payload.\nconst body = $input.first().json.body || $input.first().json;\nconst data = body?.data || {};\n\nconst startedAt = data.started_at || data.metadata?.start_time;\nconst endedAt = data.ended_at || data.metadata?.end_time;\nconst metaSecs = data.metadata?.call_duration_secs;\n\nlet durationSeconds = 0;\nif (typeof metaSecs === 'number' && metaSecs >= 0) {\n  durationSeconds = metaSecs;\n} else if (startedAt && endedAt) {\n  const ms = new Date(endedAt).getTime() - new Date(startedAt).getTime();\n  durationSeconds = Math.max(0, Math.round(ms / 1000));\n}\n\nconst minutes = Math.max(0, Math.ceil(durationSeconds / 60));\n\nreturn [{\n  json: {\n    conversation_id: data.conversation_id || data.metadata?.conversation_id || '',\n    elevenlabs_agent_id: data.agent_id || data.metadata?.agent_id || '',\n    caller_phone: data.caller_id || data.metadata?.caller_id || null,\n    duration_seconds: durationSeconds,\n    minutes: minutes,\n    minutes_str: String(minutes),\n    transcript: data.transcript || [],\n    transcript_text: Array.isArray(data.transcript)\n      ? data.transcript.map(t => `${t.role || t.speaker || 'speaker'}: ${t.message || t.text || ''}`).join('\\n')\n      : (typeof data.transcript === 'string' ? data.transcript : ''),\n    summary: data.summary || data.analysis?.summary || '',\n    audio_url: data.audio_url || data.recording_url || null,\n    language_detected: data.language || data.metadata?.detected_language || null,\n    started_at: startedAt || new Date().toISOString(),\n    ended_at: endedAt || new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-derive",
+      "name": "Code derive",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1980,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "agents",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "elevenlabs_agent_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.elevenlabs_agent_id }}"
+            }
+          ]
+        }
+      },
+      "id": "node-resolve-agent",
+      "name": "Supabase resolve agent",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1760,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "businesses",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.business_id }}"
+            }
+          ]
+        }
+      },
+      "id": "node-resolve-business",
+      "name": "Supabase resolve business",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1540,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "subscriptions",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "business_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase resolve agent').item.json.business_id }}"
+            }
+          ]
+        }
+      },
+      "id": "node-resolve-sub",
+      "name": "Supabase resolve subscription",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1320,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.stripe.com/v1/billing/meter_events",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Stripe-Version",
+              "value": "2025-03-31.basil"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "event_name",
+              "value": "call_minutes"
+            },
+            {
+              "name": "payload[stripe_customer_id]",
+              "value": "={{ $json.stripe_customer_id }}"
+            },
+            {
+              "name": "payload[value]",
+              "value": "={{ $('Code derive').item.json.minutes_str }}"
+            },
+            {
+              "name": "identifier",
+              "value": "={{ $('Code derive').item.json.conversation_id }}_meter"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "retry": {
+            "retry": {
+              "maxTries": 3,
+              "waitBetweenTries": 1000
+            }
+          }
+        }
+      },
+      "id": "node-stripe-meter",
+      "name": "HTTP stripe.meterEvents.create",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1100,
+        100
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "voxa-stripe-basic",
+          "name": "Voxa Stripe (Secret Key as Basic Auth user)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-opus-4-7\",\n  \"max_tokens\": 1024,\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You will extract structured data from a call transcript. Return ONLY a valid JSON object, no preamble, no markdown fences. Schema: {\\\"customer_name\\\": string | null, \\\"customer_phone\\\": string | null, \\\"intent\\\": string, \\\"lead_score\\\": number (0-10), \\\"sentiment\\\": 'positive' | 'neutral' | 'negative' | 'angry', \\\"follow_up_action\\\": string, \\\"summary_one_line\\\": string}.\\n\\nTranscript:\\n{{ JSON.stringify($('Code derive').item.json.transcript_text).slice(1, -1) }}\"\n    }\n  ]\n}",
+        "options": {
+          "timeout": 30000,
+          "retry": {
+            "retry": {
+              "maxTries": 2,
+              "waitBetweenTries": 2000
+            }
+          }
+        }
+      },
+      "id": "node-anthropic",
+      "name": "HTTP anthropic.extract",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -880,
+        100
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Robustly parse Claude's JSON output, with safe defaults.\nconst response = $input.first().json;\nlet extracted = {\n  customer_name: null,\n  customer_phone: null,\n  intent: 'inquiry',\n  lead_score: 5,\n  sentiment: 'neutral',\n  follow_up_action: 'none',\n  summary_one_line: ''\n};\n\ntry {\n  const text = response?.content?.[0]?.text || '';\n  // Strip markdown fences if Claude added them anyway\n  const cleaned = text\n    .replace(/^```(?:json)?\\s*/i, '')\n    .replace(/```\\s*$/, '')\n    .trim();\n  const parsed = JSON.parse(cleaned);\n  extracted = {\n    customer_name: parsed.customer_name ?? null,\n    customer_phone: parsed.customer_phone ?? null,\n    intent: typeof parsed.intent === 'string' ? parsed.intent : 'inquiry',\n    lead_score: Number.isFinite(parsed.lead_score)\n      ? Math.max(0, Math.min(10, Math.round(parsed.lead_score)))\n      : 5,\n    sentiment: ['positive', 'neutral', 'negative', 'angry'].includes(parsed.sentiment)\n      ? parsed.sentiment\n      : 'neutral',\n    follow_up_action: typeof parsed.follow_up_action === 'string' ? parsed.follow_up_action : 'none',\n    summary_one_line: typeof parsed.summary_one_line === 'string' ? parsed.summary_one_line : ''\n  };\n} catch (err) {\n  // Defaults already set above; surface the error in a side-channel field.\n  extracted.summary_one_line = 'Extraction failed; using defaults.';\n}\n\nreturn [{ json: extracted }];"
+      },
+      "id": "node-parse-extract",
+      "name": "Code parse extraction",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -660,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "tableId": "calls",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "elevenlabs_conversation_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Code derive').item.json.conversation_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "agent_id",
+              "fieldValue": "={{ $('Supabase resolve agent').item.json.id }}"
+            },
+            {
+              "fieldId": "business_id",
+              "fieldValue": "={{ $('Supabase resolve agent').item.json.business_id }}"
+            },
+            {
+              "fieldId": "elevenlabs_conversation_id",
+              "fieldValue": "={{ $('Code derive').item.json.conversation_id }}"
+            },
+            {
+              "fieldId": "caller_phone",
+              "fieldValue": "={{ $('Code derive').item.json.caller_phone }}"
+            },
+            {
+              "fieldId": "duration_seconds",
+              "fieldValue": "={{ $('Code derive').item.json.duration_seconds }}"
+            },
+            {
+              "fieldId": "transcript",
+              "fieldValue": "={{ $('Code derive').item.json.transcript }}"
+            },
+            {
+              "fieldId": "audio_url",
+              "fieldValue": "={{ $('Code derive').item.json.audio_url }}"
+            },
+            {
+              "fieldId": "language_detected",
+              "fieldValue": "={{ $('Code derive').item.json.language_detected }}"
+            },
+            {
+              "fieldId": "summary",
+              "fieldValue": "={{ $json.summary_one_line || $('Code derive').item.json.summary }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "completed"
+            }
+          ]
+        }
+      },
+      "id": "node-insert-call",
+      "name": "Supabase upsert calls",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -440,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "meter_events",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "call_id",
+              "fieldValue": "={{ $json.id }}"
+            },
+            {
+              "fieldId": "business_id",
+              "fieldValue": "={{ $('Supabase resolve agent').item.json.business_id }}"
+            },
+            {
+              "fieldId": "stripe_event_id",
+              "fieldValue": "={{ $('HTTP stripe.meterEvents.create').item.json.id || ($('Code derive').item.json.conversation_id + '_meter') }}"
+            },
+            {
+              "fieldId": "minutes_billed",
+              "fieldValue": "={{ $('Code derive').item.json.minutes }}"
+            }
+          ]
+        }
+      },
+      "id": "node-insert-meter",
+      "name": "Supabase insert meter_event",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -220,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "tableId": "leads",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "call_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Supabase upsert calls').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "call_id",
+              "fieldValue": "={{ $('Supabase upsert calls').item.json.id }}"
+            },
+            {
+              "fieldId": "business_id",
+              "fieldValue": "={{ $('Supabase resolve agent').item.json.business_id }}"
+            },
+            {
+              "fieldId": "customer_name",
+              "fieldValue": "={{ $('Code parse extraction').item.json.customer_name }}"
+            },
+            {
+              "fieldId": "customer_phone",
+              "fieldValue": "={{ $('Code parse extraction').item.json.customer_phone || $('Code derive').item.json.caller_phone }}"
+            },
+            {
+              "fieldId": "intent",
+              "fieldValue": "={{ $('Code parse extraction').item.json.intent }}"
+            },
+            {
+              "fieldId": "lead_score",
+              "fieldValue": "={{ $('Code parse extraction').item.json.lead_score }}"
+            },
+            {
+              "fieldId": "sentiment",
+              "fieldValue": "={{ $('Code parse extraction').item.json.sentiment }}"
+            },
+            {
+              "fieldId": "follow_up_action",
+              "fieldValue": "={{ $('Code parse extraction').item.json.follow_up_action }}"
+            },
+            {
+              "fieldId": "notes",
+              "fieldValue": "={{ $('Code parse extraction').item.json.summary_one_line }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "new"
+            }
+          ]
+        }
+      },
+      "id": "node-upsert-lead",
+      "name": "Supabase upsert lead",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        100
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "if-score",
+              "leftValue": "={{ $('Code parse extraction').item.json.lead_score }}",
+              "rightValue": 7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "if-sentiment",
+              "leftValue": "={{ $('Code parse extraction').item.json.sentiment }}",
+              "rightValue": "angry",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "node-if-hot",
+      "name": "IF hot lead",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "From",
+              "value": "=whatsapp:{{ $env.TWILIO_WHATSAPP_FROM }}"
+            },
+            {
+              "name": "To",
+              "value": "=whatsapp:{{ $('Supabase resolve business').item.json.owner_whatsapp }}"
+            },
+            {
+              "name": "Body",
+              "value": "=🔥 Hot lead — Name: {{ $('Code parse extraction').item.json.customer_name || 'Unknown' }} ({{ $('Code parse extraction').item.json.customer_phone || $('Code derive').item.json.caller_phone || 'no phone' }}). Intent: {{ $('Code parse extraction').item.json.intent }}. Score: {{ $('Code parse extraction').item.json.lead_score }}/10. Sentiment: {{ $('Code parse extraction').item.json.sentiment }}. Summary: {{ $('Code parse extraction').item.json.summary_one_line }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "node-hot-whatsapp",
+      "name": "HTTP twilio.whatsapp.hotLead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        20
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "voxa-twilio-basic",
+          "name": "Voxa Twilio (Account SID / Auth Token)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "noop-1",
+              "name": "skipped",
+              "value": "=not a hot lead",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-noop",
+      "name": "Set skip",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        440,
+        200
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook (POST /post-call)": {
+      "main": [
+        [
+          {
+            "node": "Respond immediately",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code derive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code derive": {
+      "main": [
+        [
+          {
+            "node": "Supabase resolve agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase resolve agent": {
+      "main": [
+        [
+          {
+            "node": "Supabase resolve business",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase resolve business": {
+      "main": [
+        [
+          {
+            "node": "Supabase resolve subscription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase resolve subscription": {
+      "main": [
+        [
+          {
+            "node": "HTTP stripe.meterEvents.create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP stripe.meterEvents.create": {
+      "main": [
+        [
+          {
+            "node": "HTTP anthropic.extract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP anthropic.extract": {
+      "main": [
+        [
+          {
+            "node": "Code parse extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code parse extraction": {
+      "main": [
+        [
+          {
+            "node": "Supabase upsert calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase upsert calls": {
+      "main": [
+        [
+          {
+            "node": "Supabase insert meter_event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase insert meter_event": {
+      "main": [
+        [
+          {
+            "node": "Supabase upsert lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase upsert lead": {
+      "main": [
+        [
+          {
+            "node": "IF hot lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF hot lead": {
+      "main": [
+        [
+          {
+            "node": "HTTP twilio.whatsapp.hotLead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Asia/Kolkata"
+  },
+  "versionId": "03000000-0000-4000-a000-000000000003",
+  "id": "voxa-w3-post-call",
+  "tags": [
+    {
+      "id": "tag-voxa",
+      "name": "voxa"
+    },
+    {
+      "id": "tag-post-call",
+      "name": "post-call"
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Voxa Workflow 3 — fires when ElevenLabs sends a post_call_transcription webhook. Responds 200 immediately, then in parallel: computes minutes, fires Stripe meter event (value as STRING of whole int, identifier=conversation_id_meter for idempotency), asks Claude Opus 4.7 to extract structured lead data, upserts calls + meter_events + leads, and WhatsApps the owner if lead_score>=7 OR sentiment='angry'."
+  }
+}

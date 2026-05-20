@@ -1,0 +1,683 @@
+{
+  "name": "Voxa W1 — Onboarding",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "onboarding",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*",
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "X-Voxa-Workflow",
+                "value": "onboarding"
+              }
+            ]
+          }
+        }
+      },
+      "id": "node-webhook-onboarding",
+      "name": "Webhook (POST /onboarding)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1600,
+        -40
+      ],
+      "webhookId": "voxa-onboarding-hook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "asn-1",
+              "name": "business_id",
+              "value": "={{ $json.body.business_id }}",
+              "type": "string"
+            },
+            {
+              "id": "asn-2",
+              "name": "tier",
+              "value": "={{ $json.body.tier }}",
+              "type": "string"
+            },
+            {
+              "id": "asn-3",
+              "name": "stripe_customer_id",
+              "value": "={{ $json.body.stripe_customer_id }}",
+              "type": "string"
+            },
+            {
+              "id": "asn-4",
+              "name": "stripe_subscription_id",
+              "value": "={{ $json.body.stripe_subscription_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-normalize",
+      "name": "Set normalize",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1380,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "businesses",
+        "returnAll": false,
+        "limit": 1,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.business_id }}"
+            }
+          ]
+        }
+      },
+      "id": "node-get-business",
+      "name": "Supabase get business",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1160,
+        -40
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.NEXT_PUBLIC_APP_URL }}/api/agent/create",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Voxa-Internal-Secret",
+              "value": "={{ $env.VOXA_INTERNAL_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"business_id\": \"{{ $('Set normalize').item.json.business_id }}\"\n}",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "id": "node-agent-create",
+      "name": "HTTP agent.create",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -940,
+        -40
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/AvailablePhoneNumbers/IN/Local.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "SmsEnabled",
+              "value": "true"
+            },
+            {
+              "name": "VoiceEnabled",
+              "value": "true"
+            },
+            {
+              "name": "PageSize",
+              "value": "5"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-twilio-list",
+      "name": "HTTP twilio.list",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -720,
+        -40
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "voxa-twilio-basic",
+          "name": "Voxa Twilio (Account SID / Auth Token)"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/IncomingPhoneNumbers.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "PhoneNumber",
+              "value": "={{ $json.available_phone_numbers[0].phone_number }}"
+            },
+            {
+              "name": "FriendlyName",
+              "value": "=Voxa {{ $('Supabase get business').item.json.name }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-twilio-purchase",
+      "name": "HTTP twilio.purchase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -500,
+        -40
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "voxa-twilio-basic",
+          "name": "Voxa Twilio (Account SID / Auth Token)"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.elevenlabs.io/v1/convai/phone-numbers",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "={{ $env.ELEVENLABS_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone_number\": \"{{ $('HTTP twilio.purchase').item.json.phone_number }}\",\n  \"label\": \"Voxa - {{ $('Supabase get business').item.json.name }}\",\n  \"provider\": \"twilio\",\n  \"provider_config\": {\n    \"sid\": \"{{ $env.TWILIO_ACCOUNT_SID }}\",\n    \"token\": \"{{ $env.TWILIO_AUTH_TOKEN }}\"\n  }\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-el-phone-import",
+      "name": "HTTP el.phoneNumbers.import",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -280,
+        -40
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.elevenlabs.io/v1/convai/phone-numbers/{{ $('HTTP el.phoneNumbers.import').item.json.phone_number_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "={{ $env.ELEVENLABS_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agent_id\": \"{{ $('HTTP agent.create').item.json.agentId }}\"\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-el-phone-assign",
+      "name": "HTTP el.phoneNumbers.assignAgent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -60,
+        -40
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "agents",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "business_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Set normalize').item.json.business_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "twilio_number_sid",
+              "fieldValue": "={{ $('HTTP twilio.purchase').item.json.sid }}"
+            },
+            {
+              "fieldId": "twilio_phone_e164",
+              "fieldValue": "={{ $('HTTP twilio.purchase').item.json.phone_number }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "active"
+            }
+          ]
+        }
+      },
+      "id": "node-supabase-update-agents",
+      "name": "Supabase update agents",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -40
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "From",
+              "value": "=whatsapp:{{ $env.TWILIO_WHATSAPP_FROM }}"
+            },
+            {
+              "name": "To",
+              "value": "=whatsapp:{{ $('Supabase get business').item.json.owner_whatsapp }}"
+            },
+            {
+              "name": "Body",
+              "value": "=Your Voxa AI receptionist is live! Number: {{ $('HTTP twilio.purchase').item.json.phone_number }}. Call it to test. Reply STOP to pause."
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-twilio-whatsapp",
+      "name": "HTTP twilio.whatsapp.activation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        380,
+        -40
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "voxa-twilio-basic",
+          "name": "Voxa Twilio (Account SID / Auth Token)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": true,\n  \"agent_id\": \"{{ $('HTTP agent.create').item.json.agentId }}\",\n  \"phone_number\": \"{{ $('HTTP twilio.purchase').item.json.phone_number }}\",\n  \"twilio_number_sid\": \"{{ $('HTTP twilio.purchase').item.json.sid }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "node-respond-ok",
+      "name": "Respond ok",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        600,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "err-1",
+              "name": "error_message",
+              "value": "={{ $json.error?.message || $json.message || 'onboarding step failed' }}",
+              "type": "string"
+            },
+            {
+              "id": "err-2",
+              "name": "error_step",
+              "value": "={{ $node.name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-error-context",
+      "name": "Set error.context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -60,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "agents",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "business_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Set normalize').item.json.business_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "failed"
+            }
+          ]
+        }
+      },
+      "id": "node-supabase-fail",
+      "name": "Supabase mark failed",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        160,
+        220
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": false,\n  \"error\": \"{{ $('Set error.context').item.json.error_message }}\",\n  \"step\": \"{{ $('Set error.context').item.json.error_step }}\"\n}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "node-respond-error",
+      "name": "Respond error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        380,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook (POST /onboarding)": {
+      "main": [
+        [
+          {
+            "node": "Set normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set normalize": {
+      "main": [
+        [
+          {
+            "node": "Supabase get business",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase get business": {
+      "main": [
+        [
+          {
+            "node": "HTTP agent.create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP agent.create": {
+      "main": [
+        [
+          {
+            "node": "HTTP twilio.list",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set error.context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP twilio.list": {
+      "main": [
+        [
+          {
+            "node": "HTTP twilio.purchase",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set error.context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP twilio.purchase": {
+      "main": [
+        [
+          {
+            "node": "HTTP el.phoneNumbers.import",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set error.context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP el.phoneNumbers.import": {
+      "main": [
+        [
+          {
+            "node": "HTTP el.phoneNumbers.assignAgent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set error.context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP el.phoneNumbers.assignAgent": {
+      "main": [
+        [
+          {
+            "node": "Supabase update agents",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set error.context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase update agents": {
+      "main": [
+        [
+          {
+            "node": "HTTP twilio.whatsapp.activation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP twilio.whatsapp.activation": {
+      "main": [
+        [
+          {
+            "node": "Respond ok",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set error.context": {
+      "main": [
+        [
+          {
+            "node": "Supabase mark failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase mark failed": {
+      "main": [
+        [
+          {
+            "node": "Respond error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Asia/Kolkata"
+  },
+  "versionId": "01000000-0000-4000-a000-000000000001",
+  "id": "voxa-w1-onboarding",
+  "tags": [
+    {
+      "id": "tag-voxa",
+      "name": "voxa"
+    },
+    {
+      "id": "tag-onboarding",
+      "name": "onboarding"
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Voxa Workflow 1 — provisions Twilio number + ElevenLabs agent + phone import + assignment after Stripe Checkout completes. Responds synchronously so /api/stripe/webhook can ACK Stripe within 4s. Errors on any HTTP step fall through to a Supabase status='failed' branch."
+  }
+}

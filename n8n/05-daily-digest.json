@@ -1,0 +1,450 @@
+{
+  "name": "Voxa W5 — Daily Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 18 * * *"
+            }
+          ]
+        }
+      },
+      "id": "node-cron",
+      "name": "Schedule Trigger (18:00 IST)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2200,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compute today's IST day boundaries as UTC ISO strings.\n// IST = UTC+5:30, so day starts 18:30 UTC the previous day.\nconst now = new Date();\nconst IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;\n\nconst istNow = new Date(now.getTime() + IST_OFFSET_MS);\nconst istY = istNow.getUTCFullYear();\nconst istM = istNow.getUTCMonth();\nconst istD = istNow.getUTCDate();\n\nconst istDayStartMs = Date.UTC(istY, istM, istD, 0, 0, 0, 0) - IST_OFFSET_MS;\nconst istDayEndMs = istDayStartMs + 24 * 60 * 60 * 1000;\n\nreturn [{\n  json: {\n    day_start_iso: new Date(istDayStartMs).toISOString(),\n    day_end_iso: new Date(istDayEndMs).toISOString(),\n    ist_date_label: `${istY}-${String(istM + 1).padStart(2, '0')}-${String(istD).padStart(2, '0')}`\n  }\n}];"
+      },
+      "id": "node-bounds",
+      "name": "Code today bounds",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "businesses",
+        "returnAll": true,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "owner_whatsapp",
+              "condition": "neq",
+              "keyValue": ""
+            }
+          ]
+        }
+      },
+      "id": "node-list-businesses",
+      "name": "Supabase list businesses",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1760,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "node-split-batches",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "calls",
+        "returnAll": true,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "business_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            },
+            {
+              "keyName": "created_at",
+              "condition": "gte",
+              "keyValue": "={{ $('Code today bounds').item.json.day_start_iso }}"
+            },
+            {
+              "keyName": "created_at",
+              "condition": "lt",
+              "keyValue": "={{ $('Code today bounds').item.json.day_end_iso }}"
+            }
+          ]
+        }
+      },
+      "id": "node-fetch-calls",
+      "name": "Supabase calls today",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1320,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "leads",
+        "returnAll": true,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "business_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Split In Batches').item.json.id }}"
+            },
+            {
+              "keyName": "created_at",
+              "condition": "gte",
+              "keyValue": "={{ $('Code today bounds').item.json.day_start_iso }}"
+            },
+            {
+              "keyName": "created_at",
+              "condition": "lt",
+              "keyValue": "={{ $('Code today bounds').item.json.day_end_iso }}"
+            }
+          ]
+        }
+      },
+      "id": "node-fetch-leads",
+      "name": "Supabase leads today",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1100,
+        0
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "voxa-supabase",
+          "name": "Voxa Supabase (service role)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build a WhatsApp-ready digest. Skip silently if no calls today.\nconst business = $('Split In Batches').first().json;\nconst calls = $('Supabase calls today').all().map(i => i.json).filter(c => c && c.id);\nconst leads = $('Supabase leads today').all().map(i => i.json).filter(l => l && l.id);\nconst bounds = $('Code today bounds').first().json;\n\nif (calls.length === 0) {\n  return [{ json: { skip: true, business_id: business.id, reason: 'no calls today' } }];\n}\n\n// Top intent\nconst intentCounts = leads.reduce((acc, l) => {\n  if (!l.intent) return acc;\n  acc[l.intent] = (acc[l.intent] || 0) + 1;\n  return acc;\n}, {});\nconst topIntent = Object.entries(intentCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'inquiry';\n\nconst hotCount = leads.filter(l => (l.lead_score ?? 0) >= 7).length;\nconst newLeadCount = leads.filter(l => l.status === 'new').length;\n\nconst appUrl = $env.NEXT_PUBLIC_APP_URL || 'https://voxa.app';\n\nconst message = [\n  `📊 Voxa Daily Digest — ${business.name}`,\n  `Today (${bounds.ist_date_label}): ${calls.length} call${calls.length === 1 ? '' : 's'}, ${newLeadCount} new lead${newLeadCount === 1 ? '' : 's'}${hotCount > 0 ? ` (${hotCount} hot 🔥)` : ''}`,\n  `Top intent: ${topIntent}`,\n  `See all: ${appUrl}/dashboard`\n].join('\\n');\n\nreturn [{\n  json: {\n    skip: false,\n    business_id: business.id,\n    owner_whatsapp: business.owner_whatsapp,\n    message,\n    call_count: calls.length,\n    lead_count: newLeadCount,\n    hot_count: hotCount,\n    top_intent: topIntent\n  }\n}];"
+      },
+      "id": "node-format-digest",
+      "name": "Code format digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "if-skip",
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-send",
+      "name": "IF has digest",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.twilio.com/2010-04-01/Accounts/{{ $env.TWILIO_ACCOUNT_SID }}/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "From",
+              "value": "=whatsapp:{{ $env.TWILIO_WHATSAPP_FROM }}"
+            },
+            {
+              "name": "To",
+              "value": "=whatsapp:{{ $json.owner_whatsapp }}"
+            },
+            {
+              "name": "Body",
+              "value": "={{ $json.message }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-send-digest",
+      "name": "HTTP twilio.whatsapp.digest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -440,
+        -80
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "voxa-twilio-basic",
+          "name": "Voxa Twilio (Account SID / Auth Token)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "amount": 0.2,
+        "unit": "seconds"
+      },
+      "id": "node-wait",
+      "name": "Wait 200ms",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -220,
+        -80
+      ],
+      "webhookId": "voxa-digest-wait"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip-flag",
+              "name": "skipped",
+              "value": "=true",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-skip-business",
+      "name": "Set skipped",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -440,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger (18:00 IST)": {
+      "main": [
+        [
+          {
+            "node": "Code today bounds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code today bounds": {
+      "main": [
+        [
+          {
+            "node": "Supabase list businesses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase list businesses": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [
+          {
+            "node": "Supabase calls today",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase calls today": {
+      "main": [
+        [
+          {
+            "node": "Supabase leads today",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase leads today": {
+      "main": [
+        [
+          {
+            "node": "Code format digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code format digest": {
+      "main": [
+        [
+          {
+            "node": "IF has digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF has digest": {
+      "main": [
+        [
+          {
+            "node": "HTTP twilio.whatsapp.digest",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set skipped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP twilio.whatsapp.digest": {
+      "main": [
+        [
+          {
+            "node": "Wait 200ms",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 200ms": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set skipped": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Asia/Kolkata"
+  },
+  "versionId": "05000000-0000-4000-a000-000000000005",
+  "id": "voxa-w5-daily-digest",
+  "tags": [
+    {
+      "id": "tag-voxa",
+      "name": "voxa"
+    },
+    {
+      "id": "tag-digest",
+      "name": "digest"
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "description": "Voxa Workflow 5 — runs daily at 18:00 IST via Schedule Trigger. Computes today's IST bounds, lists all businesses with an owner_whatsapp, then for each: fetches calls + leads, builds a markdown-style summary message, and WhatsApps the owner. Businesses with zero calls today are skipped. 200ms wait between sends prevents Twilio rate-limit hits."
+  }
+}
