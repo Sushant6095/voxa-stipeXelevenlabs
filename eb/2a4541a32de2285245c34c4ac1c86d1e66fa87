@@ -1,0 +1,27 @@
+components/docs/docs-header.tsx
+  s_4eb41e6250a233::t_e2710f5a71d1b6 85
+app/globals.css
+  s_4eb41e6250a233::t_18df7de4666e7e 207-215
+components/landing/hero.tsx
+  s_4eb41e6250a233::t_f842b3ead82202 92,110-122
+components/landing/marketing-navbar.tsx
+  s_4eb41e6250a233::t_99732744558f57 540,542-543,545,552-554
+  s_4eb41e6250a233::t_564d09014e242f 414,416-420,426-428,431
+  s_4eb41e6250a233::t_e4d71434c2b60a 557
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "eb2a4541a32de2285245c34c4ac1c86d1e66fa87",
+  "prompts": {},
+  "sessions": {
+    "s_4eb41e6250a233": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "26af34e1-6f53-44d8-9bdc-57d2d9cd19c9",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "sushant <vyapar@Vyapars-MacBook-Air.local>"
+    }
+  }
+}
