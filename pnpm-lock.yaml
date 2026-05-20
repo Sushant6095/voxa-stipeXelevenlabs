@@ -86,6 +86,9 @@ importers:
       react-parallax-tilt:
         specifier: ^1.7.328
         version: 1.7.328(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
       shadcn:
         specifier: ^4.7.0
         version: 4.7.0(@types/node@20.19.41)(typescript@5.9.3)
