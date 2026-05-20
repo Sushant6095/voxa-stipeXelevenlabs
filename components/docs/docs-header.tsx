@@ -82,7 +82,7 @@ export function DocsHeader({ breadcrumb }: DocsHeaderProps) {
             href="/dashboard"
             className="hidden h-8 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 sm:flex"
           >
-            Sign in
+            Open dashboard
             <ExternalLink aria-hidden className="size-3" />
           </Link>
 

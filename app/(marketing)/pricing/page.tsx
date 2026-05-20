@@ -50,7 +50,7 @@ async function subscribeToTier(formData: FormData): Promise<void> {
 
   const { userId } = await auth();
   if (!userId) {
-    redirect(`/sign-in?redirect_url=/pricing`);
+    redirect('/pricing');
   }
 
   const headerList = await headers();

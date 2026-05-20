@@ -24,7 +24,7 @@ export const dynamic = 'force-dynamic';
 export default async function OnboardingSuccessPage() {
   const { userId } = await auth();
   if (!userId) {
-    redirect('/sign-in?redirect_url=/onboarding');
+    redirect('/onboarding/welcome');
   }
 
   const supabase = createServiceClient();

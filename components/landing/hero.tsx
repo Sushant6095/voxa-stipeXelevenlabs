@@ -89,7 +89,7 @@ export function Hero() {
 
         {/* CTA row */}
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:gap-4">
-          <Link href="/sign-up" aria-label="Get your number for ₹999 per month">
+          <Link href="/pricing" aria-label="See pricing plans">
             <ShimmerButton
               background="#6366F1"
               shimmerColor="#ffffff"
@@ -106,6 +106,20 @@ export function Hero() {
             </InteractiveHoverButton>
           </Link>
         </div>
+
+        {/* Live phone — the AI agent really answers this number */}
+        <a
+          href="tel:+19129126711"
+          className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-500/15 sm:text-sm dark:text-emerald-300"
+          aria-label="Call the live AI receptionist demo"
+        >
+          <span className="relative inline-flex">
+            <span className="absolute inset-0 animate-ping rounded-full bg-emerald-400/60" />
+            <span className="relative inline-block size-1.5 rounded-full bg-emerald-500" />
+          </span>
+          <Phone aria-hidden="true" className="size-3.5" />
+          Live demo: <span className="font-mono">+1 (912) 912-6711</span>
+        </a>
 
         {/* Trust indicators */}
         <ul className="mt-10 flex flex-col items-center gap-3 text-xs text-slate-500 sm:flex-row sm:gap-6 sm:text-sm dark:text-slate-400">

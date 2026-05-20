@@ -22,7 +22,7 @@ function appUrl(): string {
 
 export async function openBillingPortal(): Promise<never> {
   const userId = await currentClerkUserId();
-  if (!userId) redirect('/sign-in');
+  if (!userId) redirect('/pricing');
 
   // Service-role lookup so we don't depend on the user's request having a
   // hydrated session cookie at this moment — the action is invoked from a

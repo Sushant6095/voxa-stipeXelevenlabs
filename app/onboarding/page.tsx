@@ -34,7 +34,7 @@ export default async function OnboardingGate({
 }: OnboardingPageProps) {
   const { userId } = await auth();
   if (!userId) {
-    redirect('/sign-in?redirect_url=/onboarding');
+    redirect('/onboarding/welcome');
   }
 
   const params = await searchParams;

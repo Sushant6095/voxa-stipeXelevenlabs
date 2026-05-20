@@ -411,19 +411,24 @@ export function MarketingNavbar({ hydrateScroll = true }: MarketingNavbarProps) 
               href="/dashboard"
               className="hidden text-[13px] font-medium text-foreground/80 transition-colors hover:text-foreground lg:inline-flex"
             >
-              Sign in
+              Dashboard
             </Link>
-            <Link href="/onboarding/welcome" className="hidden lg:inline-flex">
+            <a
+              href="tel:+19129126711"
+              className="hidden lg:inline-flex"
+              aria-label="Call the live AI demo at +1 (912) 912-6711"
+            >
               <ShimmerButton
                 background="#1d1d1f"
                 shimmerColor="#ffffff"
                 className="h-8 px-4"
               >
-                <span className="text-xs font-medium text-white">
-                  Get started
+                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-white">
+                  <Phone aria-hidden className="size-3" />
+                  Call AI demo
                 </span>
               </ShimmerButton>
-            </Link>
+            </a>
             {/* Mobile trigger */}
             <Button
               variant="ghost"
@@ -532,22 +537,24 @@ export function MarketingNavbar({ hydrateScroll = true }: MarketingNavbarProps) 
                   href="/dashboard"
                   className="text-center text-sm font-medium text-foreground/80"
                 >
-                  Sign in
+                  Dashboard
                 </Link>
-                <Link
-                  href="/onboarding/welcome"
+                <a
+                  href="tel:+19129126711"
                   className="inline-flex w-full justify-center"
+                  aria-label="Call the live AI demo at +1 (912) 912-6711"
                 >
                   <ShimmerButton
                     background="#1d1d1f"
                     shimmerColor="#ffffff"
                     className="w-full h-10"
                   >
-                    <span className="text-sm font-medium text-white">
-                      Get started
+                    <span className="inline-flex items-center gap-2 text-sm font-medium text-white">
+                      <Phone aria-hidden className="size-4" />
+                      Call AI demo: +1 (912) 912-6711
                     </span>
                   </ShimmerButton>
-                </Link>
+                </a>
               </div>
             </div>
           </motion.div>

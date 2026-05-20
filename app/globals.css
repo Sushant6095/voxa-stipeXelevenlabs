@@ -204,6 +204,15 @@
   }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
+  }
+  /* Anchor jumps from sidebar nav land BELOW the sticky header */
+  :target {
+    scroll-margin-top: 5rem;
+  }
+  /* prefer reduced-motion users shouldn't see smooth scroll either */
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
   }
 }
 
