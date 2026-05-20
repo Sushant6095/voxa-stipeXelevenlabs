@@ -1,0 +1,249 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-display: var(--font-cal), system-ui, sans-serif;
+  --font-heading: var(--font-cal), system-ui, sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --animate-shimmer-slide: shimmer-slide var(--speed) ease-in-out infinite alternate;
+  --animate-spin-around: spin-around calc(var(--speed) * 2) infinite linear;
+  @keyframes shimmer-slide {
+  to {
+    transform: translate(calc(100cqw - 100%), 0);
+    }
+  }
+  @keyframes spin-around {
+  0% {
+    transform: translateZ(0) rotate(0);
+    }
+  15%, 35% {
+    transform: translateZ(0) rotate(90deg);
+    }
+  65%, 85% {
+    transform: translateZ(0) rotate(270deg);
+    }
+  100% {
+    transform: translateZ(0) rotate(360deg);
+    }
+  }
+  --animate-pulse: pulse var(--duration) ease-out infinite;
+  --animate-pulse-ripple: pulse-ripple var(--duration) cubic-bezier(0.16, 1, 0.3, 1) infinite
+;
+  @keyframes pulse {
+  0%, 100% {
+    boxShadow: 0 0 0 0 var(--pulse-color, oklch(from var(--bg) l c h / 0.5));}
+  50% {
+    boxShadow: 0 0 0 var(--distance) var(--pulse-color, oklch(from var(--bg) l c h / 0.5));}}
+  @keyframes pulse-ripple {
+  0% {
+    boxShadow: 0 0 0 0 oklch(from var(--pulse-color, var(--bg)) l c h / 1);}
+  100% {
+    boxShadow: 0 0 0 var(--distance) oklch(from var(--pulse-color, var(--bg)) l c h / 0);}}
+  --animate-gradient: gradient 8s linear infinite;
+  @keyframes gradient {
+  to {
+    background-position: var(--bg-size, 300%) 0;}}
+  --animate-shiny-text: shiny-text 8s infinite;
+  @keyframes shiny-text {
+  0%, 90%, 100% {
+    background-position: calc(-100% - var(--shiny-width)) 0;}
+  30%, 60% {
+    background-position: calc(100% + var(--shiny-width)) 0;}}
+  --animate-marquee: marquee var(--duration) infinite linear;
+  --animate-marquee-vertical: marquee-vertical var(--duration) linear infinite;
+  @keyframes marquee {
+  from {
+    transform: translateX(0);}
+  to {
+    transform: translateX(calc(-100% - var(--gap)));}}
+  @keyframes marquee-vertical {
+  from {
+    transform: translateY(0);}
+  to {
+    transform: translateY(calc(-100% - var(--gap)));}}}
+
+:root {
+  /* Light theme — AA-contrast tested against the lavender wash overlay. */
+  --background: oklch(1 0 0);                  /* pure white base */
+  --foreground: oklch(0.129 0.042 264.7);      /* slate-950 — body text */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.129 0.042 264.7);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.129 0.042 264.7);
+  --primary: oklch(0.585 0.233 277.1);          /* indigo-500 — BRAND, was neutral black */
+  --primary-foreground: oklch(1 0 0);          /* white on indigo */
+  --secondary: oklch(0.968 0.007 247.9);        /* slate-100 */
+  --secondary-foreground: oklch(0.208 0.042 265.8); /* slate-900 */
+  --muted: oklch(0.968 0.007 247.9);            /* slate-100 */
+  --muted-foreground: oklch(0.446 0.043 257.3); /* slate-600 — bumped from mid-gray */
+  --accent: oklch(0.656 0.241 354.31);          /* pink-500 — BRAND */
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.869 0.022 252.9);           /* slate-300 — was 0.922, too faint */
+  --input: oklch(0.869 0.022 252.9);
+  --ring: oklch(0.585 0.233 277.1);             /* indigo-500 focus ring */
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  /* Dark theme — soft charcoal-purple base, brand-coloured primary/accent. */
+  --background: oklch(0.18 0.025 285);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.22 0.03 285);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.22 0.03 285);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.68 0.22 277);              /* lighter indigo for dark bg */
+  --primary-foreground: oklch(0.13 0.04 264);
+  --secondary: oklch(0.28 0.03 285);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.28 0.03 285);
+  --muted-foreground: oklch(0.72 0.02 260);     /* AA-safe on dark */
+  --accent: oklch(0.71 0.22 354);               /* lighter pink for dark bg */
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.68 0.22 277);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* ─── Voxa brand tokens ────────────────────────────────────────────
+   These don't collide with shadcn's `--color-primary` / `--color-accent`
+   (which are mapped to slate/neutral by the shadcn @theme inline block).
+   We use distinct names (e.g. `--color-accent-voxa`) so Tailwind v4
+   generates `bg-accent-voxa`, `text-accent-voxa`, etc. without clobber.
+   ──────────────────────────────────────────────────────────────── */
+@theme {
+  --color-voxa-primary: #6366F1;
+  --color-voxa-primary-dark: #4F46E5;
+  --color-voxa-accent: #EC4899;
+  --color-voxa-accent-dark: #DB2777;
+  --color-voxa-success: #10B981;
+  --color-voxa-warning: #F59E0B;
+  --color-voxa-danger: #EF4444;
+
+  --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-cubic: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@layer utilities {
+  /* Voxa page-background.
+     Both .voxa-bg-light AND .voxa-bg-dark are defined here. They render the
+     LIGHT styles by default; inside .dark (ancestor) they're overridden with
+     the dark soft-charcoal-purple gradient. We can't rely on Tailwind's
+     `dark:` variant because these are plain CSS classes (not @utility-
+     registered), so the variant silently no-ops. The `.dark .voxa-bg-*`
+     override pattern is bulletproof. */
+  .voxa-bg-light,
+  .voxa-bg-dark {
+    background-color: #ffffff;
+    background-image:
+      radial-gradient(1100px 600px at 50% -20%, rgba(99, 102, 241, 0.08), transparent 60%),
+      radial-gradient(800px 450px at 92% 18%, rgba(236, 72, 153, 0.06), transparent 55%),
+      radial-gradient(700px 400px at 8% 30%, rgba(168, 85, 247, 0.05), transparent 55%),
+      linear-gradient(to bottom, #ffffff 0%, #fafbff 60%, #f3f4fb 100%);
+  }
+
+  /* Dark-mode override — soft charcoal-purple with stronger brand washes. */
+  .dark .voxa-bg-light,
+  .dark .voxa-bg-dark {
+    background-color: #1a1626;
+    background-image:
+      radial-gradient(1400px 700px at 50% -15%, rgba(99, 102, 241, 0.28), transparent 60%),
+      radial-gradient(900px 500px at 92% 18%, rgba(236, 72, 153, 0.18), transparent 55%),
+      radial-gradient(700px 400px at 8% 30%, rgba(168, 85, 247, 0.18), transparent 55%),
+      linear-gradient(to bottom, #1a1626 0%, #211a31 55%, #29213c 100%);
+  }
+
+  /* Slow pulse for the background gradient orb — respects reduced motion. */
+  @media (prefers-reduced-motion: no-preference) {
+    .animate-orb-pulse {
+      animation: voxa-orb-pulse 9s ease-in-out infinite;
+    }
+  }
+  @keyframes voxa-orb-pulse {
+    0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(1); }
+    50%      { opacity: 0.85; transform: translate(-50%, -50%) scale(1.08); }
+  }
+}
