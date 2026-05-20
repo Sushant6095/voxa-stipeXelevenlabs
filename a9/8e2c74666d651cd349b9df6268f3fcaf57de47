@@ -1,0 +1,22 @@
+package.json
+  s_4eb41e6250a233::t_f2f869c6735bb5 14
+  s_4eb41e6250a233::t_36871868b657dd 47
+pnpm-lock.yaml
+  ai_agent 89-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "a98e2c74666d651cd349b9df6268f3fcaf57de47",
+  "prompts": {},
+  "sessions": {
+    "s_4eb41e6250a233": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "26af34e1-6f53-44d8-9bdc-57d2d9cd19c9",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "sushant <vyapar@Vyapars-MacBook-Air.local>"
+    }
+  }
+}
