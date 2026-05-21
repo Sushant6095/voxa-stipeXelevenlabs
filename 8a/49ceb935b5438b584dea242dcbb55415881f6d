@@ -1,0 +1,19 @@
+docs/images/voxa-icon.svg
+  s_4eb41e6250a233::t_c3b7ab4056e771 1-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "8a49ceb935b5438b584dea242dcbb55415881f6d",
+  "prompts": {},
+  "sessions": {
+    "s_4eb41e6250a233": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "26af34e1-6f53-44d8-9bdc-57d2d9cd19c9",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "sushant <vyapar@Vyapars-MacBook-Air.local>"
+    }
+  }
+}
