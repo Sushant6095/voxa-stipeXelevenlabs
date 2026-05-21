@@ -56,3 +56,10 @@ tsconfig.tsbuildinfo
 
 # Misc
 /tmp/
+
+# Demo video outputs (large binaries, regenerate via scripts/record-demo-video.cjs)
+voxa-demo-*.webm
+voxa-demo-*.mp4
+voxa-demo-*.jpg
+.demo-recording/
+audio-narration/
